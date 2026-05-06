@@ -48,7 +48,7 @@ jobs:
           git init
           git checkout -b main
           
-          git config user.name "coscyang"
+          git config user.name "yzcaishui"
           git config user.email "372033692@qq.com"
           
           git add .
