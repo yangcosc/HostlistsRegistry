@@ -1,47 +1,39 @@
-name: Sync HostlistsRegistry assets to Gitee
+name: Sync HostlistsRegistry
 
 on:
   schedule:
-    - cron: '0 2 * * *'  # 北京时间 10:00 运行
+    - cron: '0 2 * * *'  # 北京时间 10:00
   workflow_dispatch:
 
 jobs:
   sync:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Pull upstream
+      - name: 拉取上游最新代码
         run: |
           git config --global user.name "yangcosc"
           git config --global user.email "yzcaishui@gmail.com"
-
+          
           git remote add upstream https://github.com/AdguardTeam/HostlistsRegistry.git
           git fetch upstream
-          git checkout main
           git reset --hard upstream/main
 
-      - name: Keep only specified TXT files
+      - name: 只保留需要的文件
         run: |
-          # 只保留你要的文件，其他全部删除
+          # 删除所有文件
           rm -rf ./*
-          mkdir -p assets
           
-          # 从上游复制你要的文件
+          # 只创建需要的目录和文件
+          mkdir -p assets
           git checkout upstream/main -- assets/filter_1.txt
           git checkout upstream/main -- assets/filter_24.txt
 
-      - name: Push to Gitee
-        uses: peaceiris/actions-gh-pages@v3
+      - name: 推送到 Gitee
+        uses: wearerequired/git-mirror-action@v1
         with:
-          personal_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./
-          external_repository: coscyang/AdGuardSDNS
-          publish_branch: main
-          force_orphan: true
-          user_name: "yzcaishui"
-          user_email: "372033692@qq.com"
+          ssh-private-key: ${{ secrets.GITEE_SSH_PRIVATE_KEY }}
+          source-repo: .
+          destination-repo: git@gitee.com:coscyang/AdGuardSDNS.git
