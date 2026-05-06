@@ -1,69 +1,47 @@
-name: Sync Upstream to Gitee
+name: Sync HostlistsRegistry assets to Gitee
 
 on:
   schedule:
-    # 每天北京时间 10:00 执行 (UTC 时间 2:00)
-    - cron: '0 2 * * *'
-  workflow_dispatch: # 允许在 Actions 页面手动触发
+    - cron: '0 2 * * *'  # 北京时间 10:00 运行
+  workflow_dispatch:
 
 jobs:
   sync:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. 检出你自己的 Fork 仓库（作为获取文件的来源）
-      - name: Checkout my forked repo
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # 2. 配置 Git 用户信息
-      - name: Configure Git User
+      - name: Pull upstream
         run: |
-          git config user.name "yangcosc"
-          git config user.email "yzcaishui@gmail.com"
+          git config --global user.name "yangcosc"
+          git config --global user.email "yzcaishui@gmail.com"
 
-      # 3. 添加并拉取上游 (Upstream) 原始仓库的最新代码
-      - name: Fetch from Upstream
-        run: |
           git remote add upstream https://github.com/AdguardTeam/HostlistsRegistry.git
           git fetch upstream
           git checkout main
-          git merge upstream/main --allow-unrelated-histories -X theirs
+          git reset --hard upstream/main
 
-      # 4. 【核心】创建临时目录并复制指定文件
-      - name: Prepare files for sync
+      - name: Keep only specified TXT files
         run: |
-          # 创建一个干净的临时目录
-          mkdir sync-dir
+          # 只保留你要的文件，其他全部删除
+          rm -rf ./*
+          mkdir -p assets
           
-          # 👇 在这里添加你需要同步的固定文件路径 👇
-          # cp <源文件路径> sync-dir/
-          cp assets/filter_1.txt sync-dir/
-          cp assets/filter_24.txt sync-dir/
+          # 从上游复制你要的文件
+          git checkout upstream/main -- assets/filter_1.txt
+          git checkout upstream/main -- assets/filter_24.txt
 
-      # 5. 将临时目录中的文件推送到 Gitee
       - name: Push to Gitee
-        working-directory: ./sync-dir # 关键：指定工作目录为临时目录
-        run: |
-          # 初始化一个新的 git 仓库
-          git init
-          git config user.name "yzcaishui"
-          git config user.email "372033692@qq.com"
-          
-          # 添加所有文件并提交
-          git add .
-          git commit -m "Sync: Auto update specific files from upstream"
-          
-          # 设置 SSH 密钥
-          mkdir -p ~/.ssh
-          echo "${{ secrets.GITEE_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          
-          # 禁用 SSH 主机密钥检查（在 CI 环境中常用）
-          ssh-keyscan gitee.com >> ~/.ssh/known_hosts
-          
-          # 添加 Gitee 远程地址并推送
-          cd existing_git_repo
-          git remote add origin https://gitee.com/coscyang/AdGuardSDNS.git
-          git push -u origin "master"
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          personal_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./
+          external_repository: coscyang/AdGuardSDNS
+          publish_branch: main
+          force_orphan: true
+          user_name: "yzcaishui"
+          user_email: "372033692@qq.com"
