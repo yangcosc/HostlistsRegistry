@@ -1,73 +1,61 @@
-name: Build Hostlists Registry
+name: Sync Upstream Simple
 
 on:
-  push:
-    branches:
-      - main
   schedule:
-    - cron: "0 * * * *"
-  pull_request:
+    - cron: '0 2 * * *'
   workflow_dispatch:
 
+# 2. 任务定义
 jobs:
-  build:
-    name: Build Hostlists Registry
-    if: '!contains(github.event.head_commit.message, ''skip ci'')'
+  sync-job:
     runs-on: ubuntu-latest
+    
     steps:
-      - name: Checkout repo with depth 1
-        uses: actions/checkout@v6
+      # 步骤 A: 检出代码
+      - name: Checkout Code
+        uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0 # 获取完整历史
 
-      - name: Use Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: 24
+      # 步骤 B: 拉取上游代码并合并
+      - name: Merge Upstream
+        run: |
+          git config user.name "yangcosc"
+          git config user.email "yzcaishui@gmail.com"
+          
+          # 添加上游源
+          git remote add upstream https://github.com/AdguardTeam/HostlistsRegistry.git
+          git fetch upstream
+          
+          # 合并上游最新代码 (冲突时优先保留上游内容)
+          git checkout main
+          git merge upstream/main --allow-unrelated-histories -X theirs
 
-      - name: yarn install
-        run: yarn install
+      # 步骤 C: 准备同步目录 (只复制需要的文件)
+      - name: Prepare Files
+        run: |
+          mkdir sync-target
+          cp assets/filter_1.txt sync-dir/
+          cp assets/filter_24.txt sync-dir/
 
-      - name: yarn lint
-        run: yarn lint
-
-      - name: yarn compose
-        run: yarn compose
-
-      - name: Commit & Push changes
-        uses: actions-js/push@v1.5
-        if: github.ref == 'refs/heads/main' && github.repository == 'AdguardTeam/HostlistsRegistry'
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          branch: main
-          message: "skip ci: auto-build"
-
-  notify:
-    name: Send Slack notification on failure
-    runs-on: ubuntu-latest
-    needs: build
-    # Run even if the build job failed, but only for our own repo
-    if:
-      ${{
-        always() &&
-        needs.build.result == 'failure' &&
-        github.repository == 'AdguardTeam/HostlistsRegistry' &&
-        (
-          github.event_name == 'push' ||
-          github.event_name == 'schedule' ||
-          github.event_name == 'workflow_dispatch' ||
-          (
-            github.event_name == 'pull_request' &&
-            github.event.pull_request.head.repo.full_name == github.repository
-          )
-        )
-      }}
-    steps:
-      - uses: 8398a7/action-slack@v3
-        with:
-          status: failure
-          fields: workflow,repo,message,commit,author,eventName,ref,job
-          job_name: Build Hostlists Registry
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      # 步骤 D: 推送到 Gitee
+      - name: Push to Gitee
+        working-directory: ./sync-target
+        run: |
+          git init
+          git config user.name "coscyang"
+          git config user.email "372033692@qq.com"
+          
+          git add .
+          git commit -m "Auto Sync from GitHub"
+          
+          # 配置 SSH
+          mkdir -p ~/.ssh
+          echo "${{ secrets.GITEE_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan gitee.com >> ~/.ssh/known_hosts
+          
+          # 推送
+          git remote add origin ${{ secrets.GITEE_REPO_URL }}
+          git branch -M main
+          git push -u --force origin main
