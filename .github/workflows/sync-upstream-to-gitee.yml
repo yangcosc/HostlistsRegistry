@@ -1,0 +1,61 @@
+name: Sync Upstream to Gitee
+
+on:
+  schedule:
+    # 每天北京时间 10:00 执行 (UTC 时间 2:00)
+    - cron: '0 2 * * *'
+  workflow_dispatch: # 允许在 Actions 页面手动触发
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. 检出你自己的 Fork 仓库
+      - name: Checkout my forked repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 获取完整历史，便于后续操作
+
+      # 2. 配置 Git 用户信息
+      - name: Configure Git User
+        run: |
+          git config user.name "yzcaishui  "
+          git config user.email "372033692@qq.com"
+
+      # 3. 添加并拉取上游 (Upstream) 原始仓库的最新代码
+      - name: Fetch from Upstream
+        run: |
+          git remote add upstream https://github.com/AdguardTeam/HostlistsRegistry.git
+          git fetch upstream
+          git checkout main
+          git merge upstream/main --allow-unrelated-histories -X theirs
+          # 使用 -X theirs 策略，当有冲突时优先采用上游的代码
+
+      # 4. 【核心】使用稀疏检出 (Sparse Checkout) 仅保留指定文件
+      - name: Sparse Checkout Specific Files
+        run: |
+          # 开启稀疏检出功能
+          git config core.sparseCheckout true
+          
+          # 👇 在这里添加你需要同步的固定文件路径 (相对于项目根目录) 👇
+          echo "assets/filter_1.txt" > .git/info/sparse-checkout
+          echo "assets/filter_24.txt" >> .git/info/sparse-checkout
+          # 例如: 
+          # echo "sources/base.json" > .git/info/sparse-checkout
+          # echo "categories/adguard.txt" >> .git/info/sparse-checkout
+          
+          # 读取 sparse-checkout 文件列表，重置工作区
+          git read-tree -mu HEAD
+
+      # 5. 将筛选出的文件推送到 Gitee
+      - name: Push to Gitee Mirror
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }} # 此步骤不需要，但 action 要求填写
+          branch: main
+          force: true
+          directory: '.'
+          ssh: true
+          ssh_key: ${{ secrets.GITEE_SSH_PRIVATE_KEY }}
+          ssh_remote_url: ${{ secrets.GITEE_REPO_URL }}
