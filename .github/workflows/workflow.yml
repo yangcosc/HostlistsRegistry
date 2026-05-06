@@ -1,65 +1,39 @@
-name: Sync Upstream Simple
+name: Sync HostlistsRegistry assets to Gitee
 
 on:
   schedule:
-    # 每天北京时间 10:00 执行 (UTC 时间 2:00)
-    - cron: '0 2 * * *'
+    - cron: '0 2 * * *'  # 北京时间 10:00
   workflow_dispatch:
 
 jobs:
-  sync-job:
+  sync:
     runs-on: ubuntu-latest
-    
     steps:
-      # 步骤 A: 检出代码
-      - name: Checkout Code
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      # 步骤 B: 拉取上游代码并合并
-      - name: Merge Upstream
+      - name: 拉取上游最新代码
         run: |
-          git config user.name "yangcosc"
-          git config user.email "yzcaishui@gmail.com"
+          git config --global user.name "yangcosc"
+          git config --global user.email "yzcaishui@gmail.com"
           
           git remote add upstream https://github.com/AdguardTeam/HostlistsRegistry.git
           git fetch upstream
-          
-          git checkout main
-          git merge upstream/main --allow-unrelated-histories -X theirs
+          git reset --hard upstream/main
 
-      # 步骤 C: 准备同步目录 (只复制需要的文件)
-      - name: Prepare Files
+      - name: 只保留需要的文件
         run: |
-          # 【修正点1】统一目录名称为 sync-target
-          mkdir sync-target
+          # 删除所有文件
+          rm -rf ./*
           
-          # 【修正点2】确保这里也是 sync-target，且路径正确
-          cp assets/filter_1.txt sync-target/
-          cp assets/filter_24.txt sync-target/
+          # 只创建需要的目录和文件
+          mkdir -p assets
+          git checkout upstream/main -- assets/filter_1.txt
+          git checkout upstream/main -- assets/filter_24.txt
 
-      # 步骤 D: 推送到 Gitee
-      - name: Push to Gitee
-        # 【修正点3】工作目录必须对应上面的 mkdir 名称
-        working-directory: ./sync-target
-        run: |
-          # 【修正点4】初始化时直接创建 main 分支，避免 master 警告
-          git init
-          git checkout -b main
-          
-          git config user.name "yzcaishui"
-          git config user.email "372033692@qq.com"
-          
-          git add .
-          git commit -m "Auto Sync from GitHub"
-          
-          # 配置 SSH
-          mkdir -p ~/.ssh
-          echo "${{ secrets.GITEE_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan gitee.com >> ~/.ssh/known_hosts
-          
-          # 推送
-          git remote add origin ${{ secrets.GITEE_REPO_URL }}
-          git push -u --force origin main
+      - name: 推送到 Gitee
+        uses: wearerequired/git-mirror-action@v1
+        with:
+          ssh-private-key: ${{ secrets.GITEE_SSH_PRIVATE_KEY }}
+          source-repo: .
+          destination-repo: git@gitee.com:coscyang/AdGuardSDNS.git
