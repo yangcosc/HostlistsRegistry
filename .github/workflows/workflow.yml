@@ -2,10 +2,10 @@ name: Sync Upstream Simple
 
 on:
   schedule:
+    # 每天北京时间 10:00 执行 (UTC 时间 2:00)
     - cron: '0 2 * * *'
-  workflow_dispatch:
+  workflow_dispatch: # 允许手动触发
 
-# 2. 任务定义
 jobs:
   sync-job:
     runs-on: ubuntu-latest
@@ -34,9 +34,10 @@ jobs:
       # 步骤 C: 准备同步目录 (只复制需要的文件)
       - name: Prepare Files
         run: |
+          # 修正：这里必须和下面推送的目录一致
           mkdir sync-target
-          cp assets/filter_1.txt sync-dir/
-          cp assets/filter_24.txt sync-dir/
+          cp assets/filter_1.txt sync-target/
+          cp assets/filter_24.txt sync-target/
 
       # 步骤 D: 推送到 Gitee
       - name: Push to Gitee
