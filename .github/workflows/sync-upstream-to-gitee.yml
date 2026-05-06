@@ -64,6 +64,6 @@ jobs:
           ssh-keyscan gitee.com >> ~/.ssh/known_hosts
           
           # 添加 Gitee 远程地址并推送
-          git remote add origin ${{ secrets.GITEE_REPO_URL }}
-          git branch -M main
-          git push -u --force origin main
+          cd existing_git_repo
+          git remote add origin https://gitee.com/coscyang/AdGuardSDNS.git
+          git push -u origin "master"
