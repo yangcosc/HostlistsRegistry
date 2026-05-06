@@ -39,10 +39,8 @@ jobs:
           
           # 👇 在这里添加你需要同步的固定文件路径 👇
           # cp <源文件路径> sync-dir/
-          cp sources/base.json sync-dir/
-          cp categories/adguard.txt sync-dir/
-          # 你可以复制任意多个文件，只需增加 cp 命令即可
-          # cp path/to/another/file.txt sync-dir/
+          cp assets/filter_1.txt sync-dir/
+          cp assets/filter_24.txt sync-dir/
 
       # 5. 将临时目录中的文件推送到 Gitee
       - name: Push to Gitee
